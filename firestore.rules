@@ -1,0 +1,34 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /capsules/{capsuleId} {
+      allow create: if 
+        request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() < 100
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.openDate is string
+        && request.resource.data.openDate > request.time // Future date
+        && (request.resource.data.reminderTime is string || 
+            request.resource.data.reminderTime == null)
+        && request.resource.data.reminderTime.size() < 50
+        && (request.resource.data.visibility in ['public', 'private'])
+        && (request.resource.data.mediaUri == null || 
+            request.resource.data.mediaUri.matches('^https?://.+'))
+        && (request.resource.data.message == null || 
+            request.resource.data.message.size() < 1000);
+
+      allow get, list: if 
+        (resource.data.visibility == 'public') 
+        || (request.auth != null && request.auth.uid == resource.data.userId);
+
+      allow update, delete: if 
+        request.auth != null
+        && request.auth.uid == resource.data.userId
+        && request.resource.data.userId == resource.data.userId
+        // Prevent changing visibility to bypass security
+        && request.resource.data.visibility == resource.data.visibility;
+    }
+  }
+}
